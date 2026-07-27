@@ -69,7 +69,7 @@ export default function App() {
   const [authModal, setAuthModal] = useState<{ open: boolean; mode: 'login' | 'register' | null; step: 'role' | 'mobile' | 'password' | 'otp' | 'details' | 'forgot_otp' | 'reset_password' }>({ open: false, mode: null, step: 'role' });
   const [selectedRole, setSelectedRole] = useState<Role>(null);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [user, setUser] = useState<any>({ firstName: '', lastName: '', mobile: '', email: '', password: '', confirmPassword: '', businessName: '', gst: '', dl: '', dp: '' });
+ const [user, setUser] = useState<any>({ firstName: '', lastName: '', mobile: '', email: '', password: '', confirmPassword: '', otp: '', businessName: '', gst: '', dl: '', dp: '' });
   const [otpVal, setOtpVal] = useState('');
 
   // --- MODULE STATES ---
@@ -186,7 +186,7 @@ export default function App() {
     e.preventDefault();
     if (!newTruck.origin) return;
     try {
-      const response = await fetch("http://localhost:5000/api/trucks/create", {
+      const response = await fetch("https://y2wait-backend.onrender.com/api/trucks/create", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ 
@@ -219,7 +219,7 @@ export default function App() {
     e.preventDefault();
     if (!newLoad.origin) return;
     try {
-      const response = await fetch("http://localhost:5000/api/loads/create", {
+      const response = await fetch("https://y2wait-backend.onrender.com/api/loads/create", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -560,7 +560,7 @@ export default function App() {
                   <button type="button" onClick={async () => {
                     if(!user.firstName || user.mobile.length !== 10 || !user.password) return alert("Please fill all required fields correctly.");
                     try {
-                      const response = await fetch("http://localhost:5000/api/auth/register", {
+                      const response = await fetch("https://y2wait-backend.onrender.com/api/auth/register", {
                         method: "POST",
                         headers: { "Content-Type": "application/json" },
                         body: JSON.stringify({
@@ -580,7 +580,9 @@ export default function App() {
                         handlePageChange('landing');
                       } else {
                         const data = await response.json();
-                        alert("Registration Failed: " + data.message);
+                        const errorMessage = data.message || data.error || "This account already exists! Please log in.";
+                        alert("Registration Failed: " + errorMessage);
+                        
                       }
                     } catch (error) {
                       alert("Could not connect to backend.");
@@ -604,38 +606,132 @@ export default function App() {
               )}
 
               {/* STEP 2.5 (LOGIN): ENTER PASSWORD */}
-              {authModal.step === 'password' && (
-                <div className="space-y-6 animate-fade-in text-center relative z-20">
-                  <div className="flex justify-center mb-4"><div className="bg-slate-50 p-4 rounded-full border border-slate-200 shadow-inner"><Lock className="h-8 w-8 text-[#0F172A]"/></div></div>
-                  <h3 className="text-3xl font-black text-slate-900 tracking-tight">Enter Password</h3>
-                  <p className="text-xs text-slate-500 font-bold uppercase tracking-widest border border-slate-200 w-fit mx-auto px-4 py-1.5 rounded-full shadow-sm mb-6">Mobile: <span className="text-[#EA580C]">{user.mobile}</span></p>
-                  
-                  <input type="password" value={user.password} onChange={(e: any) => setUser({...user, password: e.target.value})} placeholder="Secure Password" className="w-full border-2 border-slate-200 rounded-xl p-4 text-center text-xl font-black outline-none focus:border-[#EA580C] shadow-inner" />
-                  <div className="flex flex-col gap-4 pt-2">
-                   <button type="button" onClick={async () => {
-                      try {
-                        const response = await fetch("http://localhost:5000/api/auth/send-otp", {
-                          method: "POST",
-                          headers: { "Content-Type": "application/json" },
-                         body: JSON.stringify({ 
-                          mobileNum: `${user.mobile}`, 
-  password: user.password, 
-  role: selectedRole 
-})
-                        });
-                        if (response.ok) {
-                          setAuthModal({...authModal, step: 'otp'});
-                        } else {
-                          const data = await response.json();
-                       alert("Error: " + (data.error || data.message || JSON.stringify(data)));
-                        }
-                      } catch (error) {
-                        alert("Could not connect to backend. Is Terminal 1 running?");
-                      }
-                    }} disabled={!user.password} className="w-full bg-[#EA580C] disabled:bg-slate-300 text-white font-black py-4 rounded-xl transition-colors shadow-lg hover:bg-orange-700 text-lg">Verify & Send OTP</button>
-                  </div>
-                </div>
-              )}
+{authModal.step === 'password' && (
+  <div className="space-y-6 animate-fade-in text-center relative z-20">
+    <div className="flex justify-center mb-4"><div className="bg-slate-50 p-4 rounded-full border border-slate-200 shadow-inner"><Lock className="h-8 w-8 text-[#0F172A]"/></div></div>
+    <h3 className="text-3xl font-black text-slate-900 tracking-tight">Enter Password</h3>
+    <p className="text-xs text-slate-500 font-bold uppercase tracking-widest border border-slate-200 w-fit mx-auto px-4 py-1.5 rounded-full shadow-sm mb-6">Mobile: <span className="text-[#EA580C]">{user.mobile}</span></p>
+    
+    <input type="password" value={user.password} onChange={(e: any) => setUser({...user, password: e.target.value})} placeholder="Secure Password" className="w-full border-2 border-slate-200 rounded-xl p-4 text-center text-xl font-black outline-none focus:border-[#EA580C] shadow-inner" />
+    
+    {/* 🟢 NEW: FORGOT PASSWORD LINK */}
+    <div className="flex justify-end mt-1 mb-2 pr-2">
+      <button 
+        type="button" 
+        onClick={() => setAuthModal({...authModal, step: 'forgot_phone'})} 
+        className="text-sm font-bold text-[#EA580C] hover:text-orange-700 hover:underline transition-all"
+      >
+        Forgot Password?
+      </button>
+    </div>
+
+    <div className="flex flex-col gap-4 pt-2">
+      <button type="button" onClick={async () => {
+        try {
+          const response = await fetch("https://y2wait-backend.onrender.com/api/auth/send-otp", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ mobileNum: `${user.mobile}`, password: user.password, role: selectedRole })
+          });
+          if (response.ok) {
+            setAuthModal({...authModal, step: 'otp'});
+          } else {
+            const data = await response.json();
+            alert("Error: " + (data.error || data.message || JSON.stringify(data)));
+          }
+        } catch (error) {
+          alert("Could not connect to backend.");
+        }
+      }} disabled={!user.password} className="w-full bg-[#EA580C] disabled:bg-slate-300 text-white font-black py-4 rounded-xl transition-colors shadow-lg hover:bg-orange-700 text-lg">Verify & Send OTP</button>
+    </div>
+  </div>
+)}
+{/* 🟢 FORGOT PASSWORD - STEP 1: ENTER PHONE NUMBER */}
+{authModal.step === 'forgot_phone' && (
+  <div className="space-y-6 animate-fade-in text-center relative z-20">
+    <h3 className="text-3xl font-black text-slate-900 tracking-tight mb-2">Reset Password</h3>
+    <p className="text-sm text-slate-500 font-bold mb-6">Enter your registered mobile number to receive an OTP.</p>
+    
+    <input type="tel" maxLength={10} value={user.mobile} onChange={(e: any) => setUser({...user, mobile: e.target.value.replace(/\D/g,'')})} placeholder="10-Digit Mobile Number" className="w-full border-2 border-slate-200 rounded-xl p-4 text-center text-xl font-black outline-none focus:border-[#EA580C] shadow-inner" />
+    
+    <button type="button" onClick={async () => {
+      if (user.mobile.length !== 10) return alert("Please enter a valid 10-digit number.");
+      try {
+        const response = await fetch("https://y2wait-backend.onrender.com/api/auth/forgot-password-otp", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ mobileNum: user.mobile, role: selectedRole })
+        });
+        if (response.ok) {
+          setAuthModal({...authModal, step: 'forgot_otp'});
+        } else {
+          const data = await response.json();
+          alert("Error: " + (data.error || data.message));
+        }
+      } catch (error) {
+        alert("Could not connect to backend.");
+      }
+    }} disabled={user.mobile.length !== 10} className="w-full bg-[#0F172A] disabled:bg-slate-300 text-white font-black py-4 rounded-xl transition-colors shadow-lg hover:bg-slate-800 text-lg mt-4">Send Reset OTP</button>
+    
+    <button type="button" onClick={() => setAuthModal({...authModal, step: 'password'})} className="w-full text-sm font-bold text-slate-500 hover:text-slate-900 mt-2">Back to Login</button>
+  </div>
+)}
+
+{/* 🟢 FORGOT PASSWORD - STEP 2: VERIFY OTP */}
+{authModal.step === 'forgot_otp' && (
+  <div className="space-y-6 animate-fade-in text-center relative z-20">
+    <h3 className="text-3xl font-black text-slate-900 tracking-tight mb-2">Verify OTP</h3>
+    <p className="text-sm text-slate-500 font-bold mb-6">Enter the OTP sent to <span className="text-[#EA580C]">{user.mobile}</span></p>
+    
+    {/* Note: Assuming you have a user.otp state. If not, add otp: '' to your initial setUser state */}
+    <input type="text" maxLength={6} value={user.otp} onChange={(e: any) => setUser({...user, otp: e.target.value.replace(/\D/g,'')})} placeholder="Enter 6-Digit OTP" className="w-full border-2 border-slate-200 rounded-xl p-4 text-center text-xl font-black tracking-[0.5em] outline-none focus:border-[#EA580C] shadow-inner" />
+    
+    <button type="button" onClick={async () => {
+      if (!user.otp || user.otp.length < 4) return alert("Please enter the complete OTP.");
+      // For this flow, we will just move to the password reset step and verify the OTP on the final submission
+      setAuthModal({...authModal, step: 'forgot_new_password'});
+    }} disabled={!user.otp} className="w-full bg-[#0F172A] disabled:bg-slate-300 text-white font-black py-4 rounded-xl transition-colors shadow-lg hover:bg-slate-800 text-lg mt-4">Verify OTP</button>
+  </div>
+)}
+
+{/* 🟢 FORGOT PASSWORD - STEP 3: ENTER NEW PASSWORD */}
+{authModal.step === 'forgot_new_password' && (
+  <div className="space-y-6 animate-fade-in text-center relative z-20">
+    <h3 className="text-3xl font-black text-slate-900 tracking-tight mb-2">Create New Password</h3>
+    
+    <input type="password" value={user.password} onChange={(e: any) => setUser({...user, password: e.target.value})} placeholder="New Password" className="w-full border-2 border-slate-200 rounded-xl p-4 text-center text-xl font-black outline-none focus:border-[#EA580C] shadow-inner" />
+    
+    <input type="password" value={user.confirmPassword} onChange={(e: any) => setUser({...user, confirmPassword: e.target.value})} placeholder="Confirm New Password" className="w-full border-2 border-slate-200 rounded-xl p-4 text-center text-xl font-black outline-none focus:border-[#EA580C] shadow-inner" />
+    
+    <button type="button" onClick={async () => {
+      if (user.password !== user.confirmPassword) return alert("Passwords do not match!");
+      if (user.password.length < 6) return alert("Password must be at least 6 characters.");
+      
+      try {
+        const response = await fetch("https://y2wait-backend.onrender.com/api/auth/reset-password", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ 
+            mobileNum: user.mobile, 
+            otp: user.otp, 
+            newPassword: user.password,
+            role: selectedRole
+          })
+        });
+        if (response.ok) {
+          alert("Password reset successfully! Please login with your new password.");
+          setUser({...user, password: '', confirmPassword: '', otp: ''}); // Clear sensitive fields
+          setAuthModal({...authModal, step: 'password'}); // Send back to login
+        } else {
+          const data = await response.json();
+          alert("Error: " + (data.error || data.message));
+        }
+      } catch (error) {
+        alert("Could not connect to backend.");
+      }
+    }} disabled={!user.password || !user.confirmPassword} className="w-full bg-[#EA580C] disabled:bg-slate-300 text-white font-black py-4 rounded-xl transition-colors shadow-lg hover:bg-orange-700 text-lg mt-4">Update Password</button>
+  </div>
+)}
 
               {/* STEP 3 (LOGIN): VERIFY OTP */}
               {authModal.step === 'otp' && (
@@ -646,7 +742,7 @@ export default function App() {
                    <button type="button" onClick={async () => { 
                       if (otpVal.length !== 4) return;
                       try {
-                        const response = await fetch("http://localhost:5000/api/auth/verify-otp", {
+                        const response = await fetch("https://y2wait-backend.onrender.com/api/auth/verify-otp", {
                           method: "POST",
                           headers: { "Content-Type": "application/json" },
                           body: JSON.stringify({ 
